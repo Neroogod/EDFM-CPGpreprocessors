@@ -1,0 +1,26 @@
+{
+  "schema": "MRST-CMG-preprocessor-v1",
+  "simulator": "IMEX",
+  "cmgVersion": "2024.30",
+  "gridFamily": "cart",
+  "mrstGridType": "tensorGrid,cartGrid,computeGeometry",
+  "fractureModel": "matrix",
+  "detection": "no FracGrid/Matrix fields: plain matrix grid",
+  "unitSystem": "SI",
+  "transmissibilityUnit": "md.m",
+  "dims": [
+    10,
+    7,
+    5
+  ],
+  "counts": {
+    "cells": 350,
+    "blocks": 350,
+    "inactive": 0,
+    "connections": 0,
+    "multipliers": 0,
+    "wells": 0
+  },
+  "include": "C:\\Users\\cigweo1\\Desktop\\mrst-2024a_Geomech_v3\\web\\static\\testdata\\ref_cart.inc",
+  "dataset": "C:\\Users\\cigweo1\\Desktop\\mrst-2024a_Geomech_v3\\web\\static\\testdata\\ref_cart.dat"
+}

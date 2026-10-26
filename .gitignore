@@ -1,0 +1,31 @@
+# Generated simulator decks and results (regenerate with the writeCMG*/writeEclipse* routines)
+*.inc
+*.dat
+*.DATA
+*.grdecl
+*.sr3
+*.out
+*.irf
+*.mrf
+*.rst
+
+# Logs and MATLAB editor autosaves
+*.log
+*.asv
+*.m~
+
+# Test and example artifacts
+**/tests/output/
+**/tests/output_*/
+**/tests/mcp_work/
+**/examples/output/
+
+# Web app runtime state
+web/work/
+__pycache__/
+*.pyc
+
+# ...but the web self-test fixtures are inputs, not generated output:
+# selftest.html fetches these at runtime, so they must stay tracked
+# even though they match the deck patterns above.
+!web/static/testdata/**

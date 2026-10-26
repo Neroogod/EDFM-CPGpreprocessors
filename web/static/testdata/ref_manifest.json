@@ -1,0 +1,26 @@
+{
+  "schema": "MRST-CMG-preprocessor-v1",
+  "simulator": "IMEX",
+  "cmgVersion": "2024.30",
+  "gridFamily": "corner",
+  "mrstGridType": "processGRDECL,computeGeometry",
+  "fractureModel": "matrix",
+  "detection": "no FracGrid/Matrix fields: plain matrix grid",
+  "unitSystem": "SI",
+  "transmissibilityUnit": "md.m",
+  "dims": [
+    8,
+    6,
+    4
+  ],
+  "counts": {
+    "cells": 192,
+    "blocks": 192,
+    "inactive": 0,
+    "connections": 0,
+    "multipliers": 0,
+    "wells": 0
+  },
+  "include": "C:\\Users\\cigweo1\\Desktop\\mrst-2024a_Geomech_v3\\web\\static\\testdata\\ref.inc",
+  "dataset": "C:\\Users\\cigweo1\\Desktop\\mrst-2024a_Geomech_v3\\web\\static\\testdata\\ref.dat"
+}

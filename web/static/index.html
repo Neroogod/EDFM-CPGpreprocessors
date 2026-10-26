@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDFM Grid Builder — MRST to CMG / Eclipse</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <h1>EDFM Grid Builder</h1>
+    <p class="tagline">
+      Turn a reservoir grid into a CMG or Eclipse deck. Corner-point and
+      Cartesian grids, with or without embedded fractures.
+    </p>
+  </div>
+</header>
+
+<main class="wrap layout">
+
+  <!-- ------------------------------------------------ stage rail -->
+  <nav class="rail" aria-label="Pipeline stages">
+    <ol id="rail">
+      <li data-stage="1" class="active"><span class="num">1</span><span class="label">Matrix grid</span></li>
+      <li data-stage="2" class="locked"><span class="num">2</span><span class="label">Fracture planes</span></li>
+      <li data-stage="3" class="locked"><span class="num">3</span><span class="label">EDFM gridding</span></li>
+      <li data-stage="4" class="locked"><span class="num">4</span><span class="label">Fracture&ndash;matrix NNCs</span></li>
+      <li data-stage="5" class="locked"><span class="num">5</span><span class="label">Fracture&ndash;fracture NNCs</span></li>
+      <li data-stage="6" class="locked"><span class="num">6</span><span class="label">Projection (pEDFM / CPEDFM)</span></li>
+      <li data-stage="7" class="pending"><span class="num">7</span><span class="label">Export deck</span></li>
+    </ol>
+    <p class="rail-note" id="rail-note-browser">
+      Stages 2&ndash;6 need MATLAB and MRST, so they cannot run in a browser.
+      This page covers the matrix grid and the export. <a href="#why">Why?</a>
+    </p>
+    <p class="rail-note ok" id="rail-note-matlab" hidden>
+      Connected to local MATLAB &mdash; the whole pipeline is available.
+      <span id="rail-matlab-path"></span>
+    </p>
+  </nav>
+
+  <!-- ------------------------------------------------ work area -->
+  <section class="work">
+
+    <!-- Engine choice: only shown when a local backend answers -->
+    <article class="card engine" id="card-engine" hidden>
+      <h2><span class="step">Engine</span> Where the work runs</h2>
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-engine="browser" role="tab">This browser</button>
+        <button class="tab" data-engine="matlab" role="tab">Local MATLAB</button>
+      </div>
+      <p class="note" id="engine-note-browser">
+        Grid and deck are built in this tab &mdash; no MATLAB involved, nothing
+        uploaded. Fractures need MRST's gridders, so for EDFM, pEDFM or CPEDFM
+        switch to <strong>Local MATLAB</strong> above.
+      </p>
+      <p class="note" id="engine-note-matlab" hidden>
+        Stages run in MRST through the local server, so embedded fractures work.
+        Files stay on this machine, under
+        <code id="engine-workdir">the server's work directory</code>.
+      </p>
+    </article>
+
+    <!-- Stage 1 -->
+    <article class="card" id="card-grid">
+      <h2><span class="step">Stage 1</span> Matrix grid</h2>
+
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-source="file" role="tab">Upload a grid</button>
+        <button class="tab" data-source="param" role="tab">Describe a grid</button>
+      </div>
+
+      <!-- source: uploaded GRDECL -->
+      <div class="pane" data-pane="file">
+        <div class="field">
+          <label for="file">Corner-point grid (<code>.GRDECL</code>)</label>
+          <input type="file" id="file" accept=".grdecl,.GRDECL,.txt,.inc,.data,.DATA">
+          <p class="hint">
+            Must be self-contained &mdash; <code>INCLUDE</code> directives are not
+            followed. Needs <code>SPECGRID</code>, <code>COORD</code> and
+            <code>ZCORN</code>; <code>ACTNUM</code>, <code>PORO</code> and
+            <code>PERMX/Y/Z</code> are used when present.
+          </p>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label for="permUnit">Permeability unit in the file</label>
+            <select id="permUnit">
+              <option value="mD" selected>millidarcy (mD)</option>
+              <option value="m2">square metres (m²) — MRST SI</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="permDefault">Fallback permeability (mD)</label>
+            <input type="number" id="permDefault" value="100" min="0" step="any">
+            <p class="hint">Used only if the file carries no PERM arrays.</p>
+          </div>
+          <div class="field">
+            <label for="poroDefault">Fallback porosity</label>
+            <input type="number" id="poroDefault" value="0.2" min="0" max="1" step="any">
+          </div>
+        </div>
+      </div>
+
+      <!-- source: parametric -->
+      <div class="pane" data-pane="param" hidden>
+        <div class="field">
+          <label>Blocks</label>
+          <div class="triple">
+            <input type="number" id="nx" value="20" min="1" step="1" aria-label="nx">
+            <span>×</span>
+            <input type="number" id="ny" value="10" min="1" step="1" aria-label="ny">
+            <span>×</span>
+            <input type="number" id="nz" value="5" min="1" step="1" aria-label="nz">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="spacingMode">Block sizes</label>
+          <select id="spacingMode">
+            <option value="uniform" selected>Uniform — give the total extent</option>
+            <option value="variable">Variable — give each block size</option>
+          </select>
+        </div>
+
+        <div class="field" id="fld-uniform">
+          <label>Reservoir extent (m)</label>
+          <div class="triple">
+            <input type="number" id="Lx" value="1000" min="0" step="any" aria-label="Lx">
+            <span>×</span>
+            <input type="number" id="Ly" value="500" min="0" step="any" aria-label="Ly">
+            <span>×</span>
+            <input type="number" id="Lz" value="50" min="0" step="any" aria-label="Lz">
+          </div>
+          <p class="hint">Uniform spacing exports as <code>*GRID *CART</code>.</p>
+        </div>
+
+        <div class="field" id="fld-variable" hidden>
+          <label>Block sizes per direction (m), comma or space separated</label>
+          <input type="text" id="dxs" value="12 18 10 30 15 45" placeholder="dx list">
+          <input type="text" id="dys" value="20 25 55" placeholder="dy list" style="margin-top:7px">
+          <input type="text" id="dzs" value="4 8 6" placeholder="dz list" style="margin-top:7px">
+          <p class="hint">
+            Counts must match the block numbers above. Non-uniform spacing
+            exports as <code>*GRID *VARI</code>.
+          </p>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label for="datum">Depth to the top of the grid (m)</label>
+            <input type="number" id="datum" value="2000" step="any">
+          </div>
+          <div class="field">
+            <label for="permParam">Permeability (mD)</label>
+            <input type="number" id="permParam" value="100" min="0" step="any">
+          </div>
+          <div class="field">
+            <label for="poroParam">Porosity</label>
+            <input type="number" id="poroParam" value="0.2" min="0" max="1" step="any">
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-load" class="primary" disabled>Read grid</button>
+      <div id="grid-status" class="status" hidden></div>
+    </article>
+
+    <!-- Stage 1 results -->
+    <article class="card" id="card-summary" hidden>
+      <h2><span class="step">Result</span> Grid summary</h2>
+      <dl id="summary" class="metrics"></dl>
+      <div id="warnings" class="warnbox" hidden></div>
+      <figure class="preview">
+        <canvas id="preview" width="520" height="380"></canvas>
+        <figcaption>Top layer, coloured by depth to the top face (m).
+          Inactive blocks are left blank.</figcaption>
+      </figure>
+    </article>
+
+    <!-- Stages 2-6, MATLAB only -->
+    <article class="card" id="card-frac" hidden>
+      <h2><span class="step">Stages 2&ndash;6</span> Embedded fractures</h2>
+      <p class="note">
+        Optional. Export now for the matrix grid alone, or define fractures and
+        run the EDFM pipeline first &mdash; the deck can be written at either
+        point.
+      </p>
+
+      <div class="grid2">
+        <div class="field">
+          <label for="fracMethod">Method</label>
+          <select id="fracMethod">
+            <option value="EDFM" selected>EDFM</option>
+            <option value="pEDFM">pEDFM &mdash; projection-based</option>
+            <option value="CPEDFM">CPEDFM &mdash; compartmentalised</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fracAperture">Aperture (mm)</label>
+          <input type="number" id="fracAperture" value="1" min="0" step="any">
+        </div>
+        <div class="field">
+          <label for="fracPerm">Fracture permeability (mD)</label>
+          <input type="number" id="fracPerm" value="10000" min="0" step="any">
+        </div>
+        <div class="field">
+          <label for="fracPoro">Fracture porosity</label>
+          <input type="number" id="fracPoro" value="0.5" min="0" max="1" step="any">
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-frac="explicit" role="tab">Corner points</button>
+        <button class="tab" data-frac="multistage" role="tab">Multi-stage wells</button>
+      </div>
+
+      <div class="pane" data-fracpane="explicit">
+        <div class="field">
+          <label for="fracPlanes">Fracture planes &mdash; one per line, four
+            corners as <code>x y z</code>, semicolons between corners</label>
+          <textarea id="fracPlanes" rows="4" spellcheck="false">470 60 5; 470 440 5; 470 440 45; 470 60 45
+120 270 5; 880 270 5; 880 270 45; 120 270 45</textarea>
+          <p class="hint">
+            Coordinates are in the grid's own system, before the depth datum is
+            applied &mdash; the defaults suit the 1000&thinsp;&times;&thinsp;500&thinsp;&times;&thinsp;50&nbsp;m
+            grid above. A plane lying exactly on a cell face gives only boundary
+            connections and nothing for pEDFM to project, so cut through cell
+            interiors.
+          </p>
+        </div>
+        <button id="btn-frac-fill" class="ghost">Suggest planes for this grid</button>
+      </div>
+
+      <div class="pane" data-fracpane="multistage" hidden>
+        <div class="grid2">
+          <div class="field">
+            <label for="msStages">Stages</label>
+            <input type="number" id="msStages" value="3" min="1" step="1">
+          </div>
+          <div class="field">
+            <label for="msPerStage">Fractures per stage</label>
+            <input type="number" id="msPerStage" value="3" min="1" step="1">
+          </div>
+          <div class="field">
+            <label for="msSpacing">Stage spacing (m)</label>
+            <input type="number" id="msSpacing" value="100" min="0" step="any">
+          </div>
+          <div class="field">
+            <label for="msCluster">Cluster spacing (m)</label>
+            <input type="number" id="msCluster" value="10" min="0" step="any">
+          </div>
+          <div class="field">
+            <label for="msHalf">Half length (m)</label>
+            <input type="number" id="msHalf" value="100" min="0" step="any">
+          </div>
+          <div class="field">
+            <label for="msHeight">Height (m)</label>
+            <input type="number" id="msHeight" value="40" min="0" step="any">
+          </div>
+        </div>
+        <div class="field">
+          <label>First fracture centroid (m)</label>
+          <div class="triple">
+            <input type="number" id="msCx" value="150" step="any" aria-label="x">
+            <span>,</span>
+            <input type="number" id="msCy" value="250" step="any" aria-label="y">
+            <span>,</span>
+            <input type="number" id="msCz" value="25" step="any" aria-label="z">
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-frac" class="primary">Build fracture model</button>
+      <div id="frac-status" class="status" hidden></div>
+      <ol id="frac-progress" class="progress" hidden></ol>
+    </article>
+
+    <!-- Stage 7 -->
+    <article class="card" id="card-export" hidden>
+      <h2><span class="step">Stage 7</span> Export deck</h2>
+      <div class="grid2">
+        <div class="field">
+          <label for="format">Output format</label>
+          <select id="format">
+            <option value="cmg" selected>CMG — .dat + .inc</option>
+            <option value="eclipse">Eclipse — .DATA + .grdecl</option>
+          </select>
+        </div>
+        <div class="field" id="fld-simulator">
+          <label for="simulator">Simulator</label>
+          <select id="simulator">
+            <option value="IMEX" selected>CMG IMEX</option>
+            <option value="GEM">CMG GEM</option>
+            <option value="STARS">CMG STARS</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="caseName">Case name</label>
+          <input type="text" id="caseName" value="grid_export">
+        </div>
+        <div class="field">
+          <label for="title" id="lbl-title">TITLE1</label>
+          <input type="text" id="title" value="GRID_EXPORT">
+        </div>
+        <div class="field" id="fld-version">
+          <label for="cmgVersion">CMG version</label>
+          <input type="text" id="cmgVersion" value="2024.30">
+        </div>
+        <div class="field" id="fld-from" hidden>
+          <label for="fromStage">What to write</label>
+          <select id="fromStage">
+            <option value="0" selected>Everything built so far</option>
+            <option value="1">Matrix grid only &mdash; ignore fractures</option>
+          </select>
+          <p class="hint">
+            The fracture stages are not undone; this just writes the deck from
+            an earlier point.
+          </p>
+        </div>
+      </div>
+
+      <p class="note" id="note-cmg">
+        No fluid model, rock&ndash;fluid tables or schedule are written. The
+        dataset carries the grid and nothing else, ready to open in Builder and
+        populate there.
+      </p>
+      <p class="note" id="note-ecl" hidden>
+        The deck stops at the end of <code>GRID</code>. <code>PROPS</code>,
+        <code>SOLUTION</code>, <code>SUMMARY</code> and <code>SCHEDULE</code>
+        are yours to add &mdash; nothing is invented. Units are
+        <code>METRIC</code>.
+      </p>
+
+      <button id="btn-export" class="primary">Write deck</button>
+      <div id="export-status" class="status" hidden></div>
+      <ul id="downloads" class="downloads" hidden></ul>
+    </article>
+
+    <!-- Explanation -->
+    <article class="card muted" id="why">
+      <h2>What runs where</h2>
+      <p>
+        Building fracture cells means intersecting fracture planes with grid
+        cells, computing contact areas and connectivity indices. That is
+        several thousand lines of MATLAB in MRST, and there is no browser port
+        of it. Everything downstream &mdash; block addressing, unit conversion
+        and writing the deck &mdash; is arithmetic and text, so it runs here.
+      </p>
+      <p>
+        For the full EDFM / pEDFM / CPEDFM pipeline, run this same page against
+        your own MATLAB and MRST installation:
+        <code>python web/server/serve.py</code>. An engine picker then appears
+        at the top and the fracture stages unlock &mdash; same page, same deck,
+        with MRST doing the geometry.
+      </p>
+      <p class="caveat">
+        <strong>One difference to know about.</strong> This page takes the
+        active-block set straight from <code>ACTNUM</code>. MRST's
+        <code>processGRDECL</code> can deactivate more than that &mdash; it
+        discards disconnected components and degenerate cells &mdash; so for
+        grids where those matter, the block count here will differ from the
+        MATLAB export.
+      </p>
+    </article>
+
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <p id="foot-privacy">Generated decks contain only data derived from your
+     file. Nothing is uploaded &mdash; all processing happens in this browser.</p>
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "schema": "MRST-CMG-preprocessor-v1",
+  "simulator": "IMEX",
+  "cmgVersion": "unspecified",
+  "gridFamily": "corner",
+  "mrstGridType": "processGRDECL,computeGeometry",
+  "fractureModel": "matrix",
+  "detection": "no FracGrid/Matrix fields: plain matrix grid",
+  "unitSystem": "SI",
+  "transmissibilityUnit": "md.m",
+  "dims": [
+    100,
+    100,
+    11
+  ],
+  "counts": {
+    "cells": 88775,
+    "blocks": 110000,
+    "inactive": 21225,
+    "connections": 0,
+    "multipliers": 0,
+    "wells": 0
+  },
+  "include": "C:\\Users\\cigweo1\\Desktop\\mrst-2024a_Geomech_v3\\modules\\preprocessor\\Johansen_co2.inc",
+  "dataset": "Johansen_co2.dat"
+}

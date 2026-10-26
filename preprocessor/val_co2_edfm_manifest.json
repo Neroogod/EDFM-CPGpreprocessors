@@ -1,0 +1,29 @@
+{
+  "schema": "MRST-CMG-preprocessor-v1",
+  "simulator": "IMEX",
+  "cmgVersion": "unspecified",
+  "gridFamily": "corner",
+  "mrstGridType": "processGRDECL,computeGeometry",
+  "fractureModel": "EDFM",
+  "detection": "NNCs present, no projection records",
+  "unitSystem": "SI",
+  "transmissibilityUnit": "md.m",
+  "dims": [
+    33,
+    14,
+    16
+  ],
+  "counts": {
+    "cells": 3808,
+    "blocks": 7392,
+    "inactive": 3584,
+    "matrixCells": 3696,
+    "fractureCells": 112,
+    "paddingLayers": 8,
+    "connections": 112,
+    "multipliers": 0,
+    "wells": 0
+  },
+  "include": "C:\\Users\\cigweo1\\Desktop\\mrst-2024a_Geomech_v3\\modules\\preprocessor\\val_co2_edfm.inc",
+  "dataset": "val_co2_edfm.dat"
+}

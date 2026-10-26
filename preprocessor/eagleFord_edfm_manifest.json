@@ -1,0 +1,29 @@
+{
+  "schema": "MRST-CMG-preprocessor-v1",
+  "simulator": "IMEX",
+  "cmgVersion": "unspecified",
+  "gridFamily": "vari",
+  "mrstGridType": "tensorGrid,computeGeometry",
+  "fractureModel": "EDFM",
+  "detection": "NNCs present, no projection records",
+  "unitSystem": "SI",
+  "transmissibilityUnit": "md.m",
+  "dims": [
+    26,
+    19,
+    15
+  ],
+  "counts": {
+    "cells": 3410,
+    "blocks": 7410,
+    "inactive": 4000,
+    "matrixCells": 1976,
+    "fractureCells": 1434,
+    "paddingLayers": 11,
+    "connections": 1665,
+    "multipliers": 0,
+    "wells": 0
+  },
+  "include": "C:\\Users\\cigweo1\\Desktop\\mrst-2024a_Geomech_v3\\modules\\preprocessor\\eagleFord_edfm.inc",
+  "dataset": "eagleFord_edfm.dat"
+}

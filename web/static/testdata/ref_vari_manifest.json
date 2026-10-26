@@ -1,0 +1,26 @@
+{
+  "schema": "MRST-CMG-preprocessor-v1",
+  "simulator": "IMEX",
+  "cmgVersion": "2024.30",
+  "gridFamily": "vari",
+  "mrstGridType": "tensorGrid,computeGeometry",
+  "fractureModel": "matrix",
+  "detection": "no FracGrid/Matrix fields: plain matrix grid",
+  "unitSystem": "SI",
+  "transmissibilityUnit": "md.m",
+  "dims": [
+    6,
+    3,
+    3
+  ],
+  "counts": {
+    "cells": 54,
+    "blocks": 54,
+    "inactive": 0,
+    "connections": 0,
+    "multipliers": 0,
+    "wells": 0
+  },
+  "include": "C:\\Users\\cigweo1\\Desktop\\mrst-2024a_Geomech_v3\\web\\static\\testdata\\ref_vari.inc",
+  "dataset": "C:\\Users\\cigweo1\\Desktop\\mrst-2024a_Geomech_v3\\web\\static\\testdata\\ref_vari.dat"
+}

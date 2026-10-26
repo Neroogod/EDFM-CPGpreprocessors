@@ -1,0 +1,26 @@
+{
+  "schema": "MRST-CMG-preprocessor-v1",
+  "simulator": "IMEX",
+  "cmgVersion": "unspecified",
+  "gridFamily": "corner",
+  "mrstGridType": "processGRDECL,computeGeometry",
+  "fractureModel": "matrix",
+  "detection": "no FracGrid/Matrix fields: plain matrix grid",
+  "unitSystem": "SI",
+  "transmissibilityUnit": "md.m",
+  "dims": [
+    16,
+    21,
+    22
+  ],
+  "counts": {
+    "cells": 7392,
+    "blocks": 7392,
+    "inactive": 0,
+    "connections": 0,
+    "multipliers": 0,
+    "wells": 0
+  },
+  "include": "C:\\Users\\cigweo1\\Desktop\\mrst-2024a_Geomech_v3\\modules\\preprocessor\\norne_co2.inc",
+  "dataset": "norne_co2.dat"
+}

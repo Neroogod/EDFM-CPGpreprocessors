@@ -1,0 +1,381 @@
+function info = writeCMG(G, outFile, varargin)
+% Export an MRST grid to a CMG dataset. One entry point, any grid family.
+%
+% SYNOPSIS:
+%   info = writeCMG(G, 'case.dat')
+%   info = writeCMG(G, 'case.dat', 'simulator', 'GEM')
+%   info = writeCMG(G, 'case.dat', 'grdecl', grdecl)   % corner-point
+%
+% PARAMETERS:
+%   G       - any MRST grid: cartGrid, tensorGrid, processGRDECL, or an
+%             unstructured grid, with or without an assembled fracture grid.
+%             The grid family and the fracture method (EDFM / pEDFM /
+%             CPEDFM / none) are both detected from G and reported back.
+%   outFile - path of the CMG dataset to write. The reservoir description is
+%             written alongside it as a .inc that the dataset *INCLUDEs.
+%
+% OPTIONAL ('key', value):
+%   'rock'      - rock structure (default G.rock)
+%   'simulator' - 'IMEX' (default), 'GEM' or 'STARS'
+%   'cmgVersion'- release label recorded in the banner and manifest
+%   'model'     - 'auto' (default) | 'matrix' | 'EDFM' | 'pEDFM' | 'CPEDFM'
+%   'grdecl'    - corner-point description; required for processGRDECL grids
+%   'datum'     - depth [m] to the top of the grid, overriding the grid's z
+%   'wells'     - MRST well structure; completions are written with explicit
+%                 well indices (*PERF *WI)
+%   'hostDeck'  - what to write beside the include:
+%                 'stub'     (default) a minimal dataset carrying only the
+%                            grid, ready to open in Builder and populate
+%                 'none'     the include only
+%                 'runnable' the stub plus a GENERIC placeholder fluid model,
+%                            rock-fluid tables and schedule, so the deck can
+%                            be run for testing. Those numbers are invented,
+%                            not derived from G - opt in deliberately.
+%   'tol'       - tolerance for the multiplier assembly (default 1e-5)
+%
+% NO PROPERTY IS INVENTED BY DEFAULT. The include holds exactly what came
+% from G and rock: geometry, permeability, porosity, active-block flags, and
+% any connections. Fluid model, rock-fluid, initialization and schedule are
+% yours to supply in Builder or in your own dataset.
+%
+% RETURNS:
+%   info - struct with .dataset, .include, .gridFamily, .fractureModel and
+%          the record counts. The detected combination is also written into
+%          the include banner, so a misdetection is visible in the file
+%          itself rather than only in the return value.
+%
+% SEE ALSO:
+%   cmgDetectGrid, cmgDetectFractureModel, buildCMGModel, writeCMGModel
+
+opt = struct('rock', [], 'simulator', 'IMEX', 'cmgVersion', 'unspecified', ...
+             'model', 'auto', 'grdecl', [], 'datum', [], 'wells', [], ...
+             'hostDeck', 'stub', 'tol', 1e-5, 'title', '', ...
+             'timesteps', [], 'startDate', [2026 1 1], ...
+             'cpor', 4.35e-7, 'refPres', 18000);
+opt = merge_options(opt, varargin{:});
+hostDeck = validatestring(opt.hostDeck, {'stub', 'none', 'runnable'});
+
+model = buildCMGModel(G, opt.rock, ...
+    'simulator', opt.simulator, 'cmgVersion', opt.cmgVersion, ...
+    'model', opt.model, 'grdecl', opt.grdecl, 'datum', opt.datum, ...
+    'tol', opt.tol, 'wells', opt.wells);
+
+[outDir, baseName, ext] = fileparts(outFile);
+if isempty(outDir), outDir = pwd; end
+if isempty(ext), ext = '.dat'; outFile = fullfile(outDir, [baseName ext]); end
+if ~isfolder(outDir), mkdir(outDir); end
+
+incFile = fullfile(outDir, [baseName '.inc']);
+incInfo = writeCMGModel(model, incFile);
+
+info = incInfo;
+info.dataset = '';
+info.title = opt.title;
+if isempty(info.title)
+    info.title = upper(baseName);
+end
+
+switch hostDeck
+    case 'stub'
+        info.dataset = localWriteStubDeck(outFile, incFile, model, info.title);
+    case 'runnable'
+        info.dataset = localWriteHostDeck(outFile, incFile, model, info.title, ...
+            opt.timesteps, opt.startDate, opt.cpor, opt.refPres);
+end
+info.hostDeck = hostDeck;
+info.nWells = numel(model.wells);
+
+info.manifest = localWriteManifest(outDir, baseName, model, info);
+end
+
+%--------------------------------------------------------------------------
+function datFile = localWriteStubDeck(outFile, incFile, model, title)
+% A dataset containing the grid and nothing else, for opening in Builder.
+%
+% Deliberately carries no PVT, rock-fluid, initialization or schedule data:
+% inventing those would put plausible-looking numbers in front of the user
+% that came from nowhere. Builder opens this, shows the grid, and lets the
+% remaining sections be populated from real data.
+datFile = outFile;
+fid = fopen(datFile, 'w');
+assert(fid > 0, 'writeCMG:openDeck', 'Could not open %s.', datFile);
+cleaner = onCleanup(@() fclose(fid)); %#ok<NASGU>
+w = @(varargin) fprintf(fid, varargin{:});
+
+[~, incName, incExt] = fileparts(incFile);
+meta = model.meta;
+counts = meta.counts;
+
+w('** =====================================================================\n');
+w('** %s dataset generated by writeCMG (MRST preprocessor)\n', meta.simulator);
+w('**\n');
+w('** Contains the GRID ONLY. Every number in the reservoir description\n');
+w('** came from the MRST model; nothing has been invented.\n');
+w('**\n');
+w('** Grid family    : %s   (MRST type: %s)\n', meta.gridFamily, meta.gridType);
+w('** Fracture model : %s\n', meta.fractureModel);
+w('** Blocks         : %d x %d x %d = %d (%d inactive)\n', model.grid.dims, ...
+    prod(model.grid.dims), counts.inactive);
+w('** Depth range    : %.3f .. %.3f m\n', model.grid.ztop, model.grid.zbot);
+if isfield(counts, 'wells') && counts.wells > 0
+    w('** Wells          : %d (see the end of this file)\n', counts.wells);
+end
+w('**\n');
+w('** Still to be supplied, in Builder or by hand:\n');
+w('**   *MODEL / component and PVT data\n');
+w('**   *ROCKFLUID  relative permeability and capillary pressure\n');
+w('**   *INITIAL    initialization, reference depth and pressure, contacts\n');
+w('**   *NUMERICAL  solver controls\n');
+w('**   RUN section: wells, constraints and time steps\n');
+w('**   *CPOR / *PRPOR rock compressibility\n');
+w('** =====================================================================\n');
+w('RESULTS SIMULATOR %s %s\n\n', meta.simulator, localVersionTag(meta));
+w('TITLE1 ''%s''\n', title);
+w('INUNIT SI\n\n');
+
+% The fundamental grid must be declared here, not in the include: Builder
+% rejects *GRID seen through an *INCLUDE and shows an empty grid.
+hdr = cmgGridHeader(model);
+for q = 1:numel(hdr)
+    w('%s\n', hdr{q});
+end
+w('*INCLUDE ''%s%s''\n\n', incName, incExt);
+
+if ~isempty(model.wells)
+    w('** Wells exported from MRST, with explicit well indices. Uncomment\n');
+    w('** and move below RUN once the fluid model is in place.\n');
+    w('**\n');
+    localWriteWells(fid, model, '** ');
+end
+
+% A bare RUN/STOP pair: section markers, no data, marking where the
+% recurrent section begins.
+%
+% This deck is intentionally incomplete and IMEX will not read it - the
+% simulator requires a full dataset and reports "End-of-File before *RUN"
+% for any deck missing the fluid model, however the markers are arranged
+% (verified across four variants). Builder is the intended consumer, since
+% it edits partial datasets. To get a deck IMEX can run, either populate the
+% missing sections or pass 'hostDeck','runnable' for a placeholder fluid
+% model. The include file itself is independently valid: it parses and runs
+% unchanged inside a complete deck.
+w('** ---------------------------------------------------------------------\n');
+w('** Section markers only - no data. Populate above RUN (fluid model,\n');
+w('** rock-fluid, initialization) and below it (wells, constraints, dates).\n');
+w('** As written this deck is incomplete: open it in Builder, not IMEX.\n');
+w('RUN\n');
+w('STOP\n');
+end
+
+%--------------------------------------------------------------------------
+function tag = localVersionTag(meta)
+tag = char(string(meta.cmgVersion));
+if isempty(tag) || strcmpi(tag, 'unspecified')
+    tag = '2024.30';
+end
+end
+
+%--------------------------------------------------------------------------
+function datFile = localWriteHostDeck(outFile, incFile, model, title, ...
+    timesteps, startDate, cpor, refPres)
+% A minimal runnable dataset around the reservoir description. Keyword
+% order follows a working IMEX 2024.30 black-oil deck; the fluid model is
+% deliberately generic and is meant to be replaced with the study's own.
+datFile = outFile;
+fid = fopen(datFile, 'w');
+assert(fid > 0, 'writeCMG:openDeck', 'Could not open %s.', datFile);
+cleaner = onCleanup(@() fclose(fid)); %#ok<NASGU>
+w = @(varargin) fprintf(fid, varargin{:});
+
+[~, incName, incExt] = fileparts(incFile);
+meta = model.meta;
+
+w('** =====================================================================\n');
+w('** Runnable %s dataset generated by writeCMG (MRST preprocessor)\n', meta.simulator);
+w('** Reservoir description : %s%s\n', incName, incExt);
+w('** Grid family           : %s\n', meta.gridFamily);
+w('** Fracture model        : %s\n', meta.fractureModel);
+w('** The fluid model, rock-fluid tables and schedule below are generic\n');
+w('** placeholders. Replace them with the study''s own data; the reservoir\n');
+w('** description in the include file is the preprocessor output.\n');
+w('** =====================================================================\n');
+w('RESULTS SIMULATOR %s 2024.30\n\n', meta.simulator);
+w('TITLE1 ''%s''\n', title);
+w('INUNIT SI\n');
+w('*WPRN *GRID *TIME\n');
+w('*OUTPRN *RES *NONE\n');
+w('*OUTPRN *GRID *NONE\n');
+w('*OUTPRN *WELL *BRIEF\n');
+w('*WSRF *GRID *TIME\n');
+w('*WSRF *WELL 1\n\n');
+
+% As in the stub deck: *GRID belongs in the dataset, not the include.
+hdr = cmgGridHeader(model);
+for q = 1:numel(hdr)
+    w('%s\n', hdr{q});
+end
+w('*INCLUDE ''%s%s''\n\n', incName, incExt);
+
+% Porosity reference pressure is pinned to the initialization pressure so
+% the porosity CMG reports is the porosity that was exported. With them
+% apart, IMEX's "Total Pore Volume" differs from the grid's geometric pore
+% volume by the compressibility correction and static reconciliation against
+% MRST becomes ambiguous.
+w('*CPOR %g\n', cpor);
+w('*PRPOR %g\n\n', refPres);
+if cpor == 0
+    w('** cpor = 0: reported pore volume is then the exported geometric pore\n');
+    w('** volume exactly, which makes static reconciliation against MRST clean.\n\n');
+end
+
+w('*MODEL *BLACKOIL\n');
+w('*PVT\n');
+w('** p            rs        bo       eg       viso    visg\n');
+w('  101.353       0.1781    1.062    1.0686   1.04    0.008\n');
+w('  1825.043     16.1187    1.150   14.7295   0.975   0.0096\n');
+w('  3548.733     32.0594    1.207   28.3191   0.910   0.0112\n');
+w('  6996.113     66.0779    1.295   55.7477   0.830   0.0140\n');
+w(' 13890.873    113.2764    1.435  110.4267   0.695   0.0189\n');
+w(' 17333.427    138.0334    1.500  137.6772   0.641   0.0208\n');
+w(' 20785.633    165.6401    1.565  164.9276   0.594   0.0228\n');
+w(' 27680.393    226.1967    1.695  219.6067   0.510   0.0268\n\n');
+w('*DENSITY *OIL   740.7\n');
+w('*DENSITY *GAS     1.0368\n');
+w('*DENSITY *WATER 997.0\n');
+w('*CO    0.1985E-10\n*CVO   0.6673E-10\n');
+w('*BWI   1.0410\n*CW    4.336E-10\n*REFPW 101.353\n*VWI   0.31\n*CVW   0.0\n\n');
+
+w('*ROCKFLUID\n*RPT 1\n');
+w('*SWT\n** sw        krw    krow\n');
+w('  0.12        0.0    1.0\n');
+w('  0.82        1.0    0.0\n\n');
+w('*SLT\n** sl        krg     krog\n');
+w('  0.12        0.984   0.0\n');
+w('  0.30        0.940   0.0\n');
+w('  0.50        0.720   0.001\n');
+w('  0.70        0.190   0.09\n');
+w('  0.88        0.025   0.7\n');
+w('  1.00        0.0     1.0\n\n');
+
+% Datum at the top of the section, contacts placed outside it: the gas-oil
+% contact at the top means no gas cap, the water-oil contact below the base
+% means no aquifer. Deriving both from the grid's own depth range keeps the
+% initialization physical whatever depth the model sits at - a fixed offset
+% from the top produces a negative *DGOC for shallow or zero-datum grids.
+zref = model.grid.ztop;
+zbot = model.grid.zbot;
+if ~(isfinite(zbot) && zbot > zref), zbot = zref + 100; end
+w('*INITIAL\n');
+w('*VERTICAL *BLOCK_CENTER *WATER_OIL_GAS\n');
+w('*PB *CON 15000\n');
+w('*REFDEPTH %.4f\n', zref);
+w('*REFPRES  %g\n', refPres);
+w('*DWOC     %.4f\n', zbot + 1000);
+w('*DGOC     %.4f\n\n', zref);
+
+w('*NUMERICAL\n\n');
+
+% ------------------------------------------------------------- RECURRENT
+w('RUN\n');
+w('DATE %d %d %d\n', startDate(1), startDate(2), startDate(3));
+w('DTWELL 1\n\n');
+
+localWriteWells(fid, model);
+
+if isempty(timesteps)
+    % No schedule requested: advance one day so the run exercises the grid
+    % and reports fluid in place without simulating a production history.
+    w('TIME 1\n');
+else
+    t = cumsum(convertTo(timesteps(:), day));
+    for q = 1:numel(t)
+        w('TIME %.6f\n', t(q));
+    end
+end
+w('STOP\n');
+end
+
+%--------------------------------------------------------------------------
+function localWriteWells(fid, model, prefix)
+% prefix is prepended to every card; pass '** ' to emit the block commented
+% out, as the stub deck does while the fluid model is still missing.
+if nargin < 3, prefix = ''; end
+w = @(fmt, varargin) fprintf(fid, [prefix, fmt], varargin{:});
+wells = model.wells;
+if isempty(wells)
+    if isempty(prefix)
+        fprintf(fid, '** No wells were supplied to writeCMG.\n\n');
+    end
+    return
+end
+
+w('** ---- wells ---------------------------------------------------------\n');
+w('** Well indices are written explicitly (*PERF *WI, md.m) rather than\n');
+w('** left to CMG''s radial model, which would be applied to the exported\n');
+w('** block geometry instead of the geometry MRST computed them from.\n\n');
+
+for k = 1:numel(wells)
+    wl = wells(k);
+    w('*WELL %d ''%s''\n', k, wl.name);
+
+    if wl.isInjector
+        w('*INJECTOR *MOBWEIGHT %d\n', k);
+        w('*INCOMP *%s\n', upper(wl.comp));
+        if strcmpi(wl.type, 'bhp')
+            w('*OPERATE *MAX *BHP %.6f\n', convertTo(wl.val, kilo*Pascal));
+        else
+            w('*OPERATE *MAX *ST%s %.6f\n', localPhaseTag(wl.comp), ...
+                convertTo(abs(wl.val), meter^3/day));
+        end
+    else
+        w('*PRODUCER %d\n', k);
+        if strcmpi(wl.type, 'bhp')
+            w('*OPERATE *MIN *BHP %.6f\n', convertTo(wl.val, kilo*Pascal));
+        else
+            w('*OPERATE *MAX *STL %.6f\n', convertTo(abs(wl.val), meter^3/day));
+        end
+    end
+
+    w('*PERF *WI %d\n', k);
+    w('** UBA            wi [md.m]\n');
+    % Written row by row so the comment prefix reaches the perforation table
+    % too; a bulk fprintf here would leave it live in a commented block.
+    for p = 1:size(wl.uba, 1)
+        w('  %d %d %d   %.8e\n', wl.uba(p, 1), wl.uba(p, 2), wl.uba(p, 3), wl.wi(p));
+    end
+    w('\n');
+end
+end
+
+%--------------------------------------------------------------------------
+function tag = localPhaseTag(comp)
+switch upper(char(string(comp)))
+    case 'WATER', tag = 'W';
+    case 'GAS',   tag = 'G';
+    otherwise,    tag = 'O';
+end
+end
+
+%--------------------------------------------------------------------------
+function manifestFile = localWriteManifest(outDir, baseName, model, info)
+manifestFile = fullfile(outDir, [baseName '_manifest.json']);
+manifest = struct( ...
+    'schema', 'MRST-CMG-preprocessor-v1', ...
+    'simulator', model.meta.simulator, ...
+    'cmgVersion', model.meta.cmgVersion, ...
+    'gridFamily', model.meta.gridFamily, ...
+    'mrstGridType', model.meta.gridType, ...
+    'fractureModel', model.meta.fractureModel, ...
+    'detection', model.meta.detection, ...
+    'unitSystem', model.meta.unitSystem, ...
+    'transmissibilityUnit', model.meta.transUnit, ...
+    'dims', model.grid.dims, ...
+    'counts', model.meta.counts, ...
+    'include', info.include, ...
+    'dataset', info.dataset);
+
+fid = fopen(manifestFile, 'w');
+assert(fid > 0, 'writeCMG:manifest', 'Could not open %s.', manifestFile);
+cleaner = onCleanup(@() fclose(fid)); %#ok<NASGU>
+fprintf(fid, '%s\n', jsonencode(manifest, 'PrettyPrint', true));
+end

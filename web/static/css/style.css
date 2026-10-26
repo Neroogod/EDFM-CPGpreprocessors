@@ -1,0 +1,211 @@
+:root {
+  --ink: #1a2028;
+  --muted: #5c6773;
+  --line: #dfe4ea;
+  --bg: #f6f8fa;
+  --panel: #ffffff;
+  --accent: #1f5c8b;
+  --accent-dark: #17456a;
+  --ok: #1d7a4c;
+  --warn: #8a5a00;
+  --warn-bg: #fff8e6;
+  --err: #a32020;
+  --err-bg: #fdecec;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+.masthead {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  padding: 26px 0 20px;
+}
+.masthead h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: -0.01em; }
+.tagline { margin: 0; color: var(--muted); max-width: 62ch; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 28px;
+  align-items: start;
+  padding-top: 26px;
+  padding-bottom: 40px;
+}
+
+/* ---------------------------------------------------------- stage rail */
+.rail ol { list-style: none; margin: 0; padding: 0; }
+.rail li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 6px;
+  color: var(--muted); font-size: 14px;
+}
+.rail li .num {
+  flex: none; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 600;
+  background: #e7ebf0; color: var(--muted);
+}
+.rail li.active { background: #e9f1f8; color: var(--ink); font-weight: 600; }
+.rail li.active .num { background: var(--accent); color: #fff; }
+.rail li.done .num { background: var(--ok); color: #fff; }
+.rail li.done { color: var(--ink); }
+.rail li.locked { opacity: 0.5; }
+.rail li.locked .label::after { content: " ·  MATLAB"; font-size: 11px; letter-spacing: .02em; }
+
+.rail-note {
+  margin: 14px 4px 0; font-size: 12.5px; color: var(--muted);
+  border-top: 1px solid var(--line); padding-top: 12px;
+}
+.rail-note a { color: var(--accent); }
+
+/* --------------------------------------------------------------- cards */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+}
+.card h2 {
+  margin: 0 0 16px; font-size: 17px;
+  display: flex; align-items: baseline; gap: 10px;
+}
+.step {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--accent);
+  background: #e9f1f8; padding: 3px 7px; border-radius: 4px;
+}
+.card.muted { background: #fbfcfd; }
+.card.muted p { color: var(--muted); margin: 0 0 10px; max-width: 74ch; }
+.caveat { border-left: 3px solid var(--warn); padding-left: 12px; }
+
+/* -------------------------------------------------------------- fields */
+.field { margin-bottom: 16px; }
+.field label { display: block; font-weight: 600; font-size: 13.5px; margin-bottom: 5px; }
+.field input[type=text], .field input[type=number], .field select {
+  width: 100%; padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 5px;
+  font: inherit; background: #fff;
+}
+.field input[type=file] { width: 100%; font: inherit; }
+.hint { margin: 5px 0 0; font-size: 12.5px; color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+
+.tabs { display: flex; gap: 4px; margin: 0 0 18px; border-bottom: 1px solid var(--line); }
+.tab {
+  background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: 8px 14px; font: inherit; font-weight: 600; font-size: 14px;
+  color: var(--muted); cursor: pointer; margin-bottom: -1px;
+}
+.tab:hover { color: var(--ink); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.triple { display: flex; align-items: center; gap: 8px; }
+.triple input { width: 100%; }
+.triple span { color: var(--muted); }
+
+button.primary {
+  background: var(--accent); color: #fff; border: 0;
+  padding: 9px 18px; border-radius: 5px;
+  font: inherit; font-weight: 600; cursor: pointer;
+}
+button.primary:hover:not(:disabled) { background: var(--accent-dark); }
+button.primary:disabled { background: #b6c2cd; cursor: not-allowed; }
+
+/* ------------------------------------------------------------- results */
+.status { margin-top: 14px; font-size: 13.5px; padding: 9px 12px; border-radius: 5px; }
+.status.busy { background: #eef3f7; color: var(--muted); }
+.status.ok   { background: #e9f6ef; color: var(--ok); }
+.status.err  { background: var(--err-bg); color: var(--err); white-space: pre-wrap; }
+
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 18px; margin: 0; }
+.metrics div { border-left: 3px solid var(--line); padding-left: 11px; }
+.metrics dt { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.metrics dd { margin: 2px 0 0; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.metrics dd small { font-weight: 400; font-size: 12.5px; color: var(--muted); }
+
+.warnbox {
+  margin-top: 16px; background: var(--warn-bg); border: 1px solid #f0dfae;
+  color: var(--warn); border-radius: 5px; padding: 10px 13px; font-size: 13px;
+}
+.warnbox ul { margin: 6px 0 0; padding-left: 18px; }
+
+.preview { margin: 18px 0 0; }
+.preview canvas {
+  width: 100%; max-width: 520px; height: auto;
+  border: 1px solid var(--line); border-radius: 5px; background: #fff;
+}
+.preview figcaption { margin-top: 7px; font-size: 12.5px; color: var(--muted); }
+
+.note {
+  font-size: 13px; color: var(--muted);
+  background: #f4f7fa; border-radius: 5px; padding: 10px 13px; margin: 4px 0 16px;
+}
+
+.downloads { list-style: none; margin: 16px 0 0; padding: 0; }
+.downloads li {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; padding: 10px 0; border-top: 1px solid var(--line);
+}
+.downloads .name { font-family: ui-monospace, Consolas, monospace; font-size: 13.5px; }
+.downloads .size { color: var(--muted); font-size: 12.5px; margin-left: auto; }
+.downloads a {
+  color: var(--accent); font-weight: 600; text-decoration: none;
+  border: 1px solid var(--accent); padding: 5px 12px; border-radius: 5px; font-size: 13px;
+}
+.downloads a:hover { background: var(--accent); color: #fff; }
+
+.foot { padding: 18px 24px 34px; color: var(--muted); font-size: 12.5px; }
+.foot p { margin: 0; }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .grid2 { grid-template-columns: 1fr; }
+  .metrics { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* -------------------------------------------- fracture stages (MATLAB) */
+.field textarea {
+  width: 100%; padding: 8px 9px; resize: vertical;
+  border: 1px solid var(--line); border-radius: 5px; background: #fff;
+  font-family: ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.6;
+}
+
+button.ghost {
+  background: none; color: var(--accent); border: 1px solid var(--line);
+  padding: 7px 14px; border-radius: 5px;
+  font: inherit; font-weight: 600; font-size: 13px; cursor: pointer;
+}
+button.ghost:hover { border-color: var(--accent); background: #f2f7fb; }
+
+.card.engine .tabs { margin-bottom: 12px; }
+.rail-note.ok { color: var(--ok); }
+.rail-note.ok code { font-size: 11.5px; }
+
+.progress { list-style: none; margin: 16px 0 0; padding: 0; font-size: 13.5px; }
+.progress li {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px;
+  padding: 8px 0; border-top: 1px solid var(--line); color: var(--muted);
+}
+.progress .pn {
+  flex: 0 0 22px; height: 22px; line-height: 20px; text-align: center;
+  border: 1px solid var(--line); border-radius: 50%; font-size: 11.5px; font-weight: 700;
+}
+.progress .pl { flex: 1 1 auto; }
+.progress .pv { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+.progress .pw { flex: 1 0 100%; color: var(--warn); font-size: 12.5px; padding-left: 32px; }
+
+.progress li.running { color: var(--ink); }
+.progress li.running .pn { border-color: var(--accent); color: var(--accent); }
+.progress li.ok { color: var(--ink); }
+.progress li.ok .pn { border-color: var(--ok); background: var(--ok); color: #fff; }
+.progress li.err .pn { border-color: var(--err); background: var(--err); color: #fff; }

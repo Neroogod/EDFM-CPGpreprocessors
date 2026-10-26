@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Writer regression test</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .verdict { font-size: 22px; font-weight: 700; padding: 14px 18px; border-radius: 6px; margin: 0 0 18px; }
+  .verdict.pass { background: #e9f6ef; color: #1d7a4c; }
+  .verdict.fail { background: #fdecec; color: #a32020; }
+  pre { background: #f6f8fa; border: 1px solid #dfe4ea; border-radius: 5px;
+        padding: 12px; overflow-x: auto; font-size: 12px; line-height: 1.45; }
+  .case { margin-bottom: 22px; }
+  .case h3 { margin: 0 0 8px; font-size: 15px; }
+  .ok  { color: #1d7a4c; font-weight: 600; }
+  .bad { color: #a32020; font-weight: 600; }
+</style>
+</head>
+<body>
+<header class="masthead"><div class="wrap">
+  <h1>Writer regression test</h1>
+  <p class="tagline">The browser writer must reproduce
+     <code>writeCMGModel.m</code> and <code>writeCMG.m</code> byte for byte
+     from <code>ref.grdecl</code> alone.</p>
+</div></header>
+
+<main class="wrap" style="padding-top:24px;padding-bottom:40px">
+  <div id="verdict" class="verdict">running…</div>
+  <div id="report"></div>
+</main>
+
+<script type="module">
+import { parseGRDECL } from "./js/grdecl.js";
+import { buildMatrixModel, buildParametricModel } from "./js/cmgmodel.js";
+import { writeInclude, writeStubDeck } from "./js/cmgwriter.js";
+import { writeEclipseInclude, writeEclipseStub } from "./js/eclwriter.js";
+
+const report = document.getElementById("report");
+const verdict = document.getElementById("verdict");
+
+function allDifferences(a, b, limit = 25) {
+  const la = a.split("\n"), lb = b.split("\n");
+  const n = Math.max(la.length, lb.length);
+  const out = [];
+  for (let i = 0; i < n && out.length < limit; i++) {
+    if (la[i] !== lb[i]) {
+      out.push({ line: i + 1,
+                 expected: la[i] ?? "(past end of file)",
+                 actual: lb[i] ?? "(past end of file)" });
+    }
+  }
+  return { diffs: out, lineCount: [la.length, lb.length] };
+}
+
+function show(name, expected, actual) {
+  const same = expected === actual;
+  const { diffs, lineCount } = same ? { diffs: [], lineCount: [0, 0] }
+                                    : allDifferences(expected, actual);
+  const el = document.createElement("div");
+  el.className = "case";
+  let body = `<h3>${name} — <span class="${same ? "ok" : "bad"}">${same ? "IDENTICAL" : "DIFFERS"}</span></h3>`;
+  body += `<p style="margin:0 0 8px;color:#5c6773;font-size:13px">` +
+          `MATLAB ${expected.length.toLocaleString()} bytes / ` +
+          `browser ${actual.length.toLocaleString()} bytes` +
+          (same ? "" : ` · ${lineCount[0]} vs ${lineCount[1]} lines · ` +
+                       `${diffs.length} differing line(s) shown`) + `</p>`;
+  if (diffs.length) {
+    body += "<pre>" + diffs.map((d) =>
+      `line ${d.line}\n  MATLAB : ${escapeHtml(d.expected)}\n  browser: ${escapeHtml(d.actual)}`
+    ).join("\n\n") + "</pre>";
+  }
+  el.innerHTML = body;
+  report.appendChild(el);
+  return same;
+}
+
+const escapeHtml = (s) => String(s).replace(/[&<>]/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+(async () => {
+  try {
+    const [grdeclText, refInc, refDat] = await Promise.all([
+      fetch("testdata/ref.grdecl").then((r) => r.text()),
+      fetch("testdata/ref.inc").then((r) => r.text()),
+      fetch("testdata/ref.dat").then((r) => r.text()),
+    ]);
+
+    const g = parseGRDECL(grdeclText);
+    const model = buildMatrixModel(g, {
+      permUnit: "mD", simulator: "IMEX", cmgVersion: "2024.30",
+    });
+
+    const info = document.createElement("pre");
+    info.textContent =
+      `parsed dims      : ${g.cartDims.join(" x ")}\n` +
+      `COORD values     : ${g.COORD.length}\n` +
+      `ZCORN values     : ${g.ZCORN.length}\n` +
+      `active blocks    : ${model.meta.counts.cells} of ${model.meta.counts.blocks}\n` +
+      `warnings         : ${g.warnings.length ? g.warnings.join("; ") : "none"}\n` +
+      `skipped keywords : ${g.skipped.length ? g.skipped.join(", ") : "none"}`;
+    report.appendChild(info);
+
+    const results = [];
+    results.push(show("CMG corner-point · ref.inc", refInc, writeInclude(model)));
+    results.push(show("CMG corner-point · ref.dat", refDat,
+                      writeStubDeck(model, "ref.inc", "REF")));
+
+    const [eclInc, eclDat] = await Promise.all([
+      fetch("testdata/ref_ecl.grdecl").then((r) => r.text()),
+      fetch("testdata/ref_ecl.DATA").then((r) => r.text()),
+    ]);
+    results.push(show("Eclipse corner-point · ref_ecl.grdecl",
+                      eclInc, writeEclipseInclude(model)));
+    results.push(show("Eclipse corner-point · ref_ecl.DATA",
+                      eclDat, writeEclipseStub(model, "ref_ecl.grdecl", "REF")));
+
+    // ---- parametric grids: *CART and *VARI ----
+    for (const base of ["ref_cart", "ref_vari"]) {
+      const [specText, expInc, expDat] = await Promise.all([
+        fetch(`testdata/${base}.json`).then((r) => r.text()),
+        fetch(`testdata/${base}.inc`).then((r) => r.text()),
+        fetch(`testdata/${base}.dat`).then((r) => r.text()),
+      ]);
+      const spec = JSON.parse(specText);
+      const m = buildParametricModel(spec, {
+        simulator: "IMEX", cmgVersion: "2024.30",
+      });
+
+      const note = document.createElement("pre");
+      note.textContent =
+        `${base}: kind ${m.grid.kind}, dims ${m.grid.dims.join(" x ")}, ` +
+        `${m.meta.counts.blocks} blocks, datum ${m.grid.ztop} m`;
+      report.appendChild(note);
+
+      results.push(show(`CMG ${m.grid.kind} · ${base}.inc`, expInc, writeInclude(m)));
+      results.push(show(`CMG ${m.grid.kind} · ${base}.dat`, expDat,
+                        writeStubDeck(m, `${base}.inc`, spec.title)));
+
+      const [eInc, eDat] = await Promise.all([
+        fetch(`testdata/${base}_ecl.grdecl`).then((r) => r.text()),
+        fetch(`testdata/${base}_ecl.DATA`).then((r) => r.text()),
+      ]);
+      results.push(show(`Eclipse ${m.grid.kind} · ${base}_ecl.grdecl`,
+                        eInc, writeEclipseInclude(m)));
+      results.push(show(`Eclipse ${m.grid.kind} · ${base}_ecl.DATA`,
+                        eDat, writeEclipseStub(m, `${base}_ecl.grdecl`, spec.title)));
+    }
+
+    const pass = results.every(Boolean);
+    verdict.className = `verdict ${pass ? "pass" : "fail"}`;
+    verdict.textContent = pass
+      ? "PASS — browser output is byte-identical to MATLAB"
+      : "FAIL — output differs from MATLAB";
+  } catch (err) {
+    verdict.className = "verdict fail";
+    verdict.textContent = `FAIL — ${err.message}`;
+    const pre = document.createElement("pre");
+    pre.textContent = err.stack || String(err);
+    report.appendChild(pre);
+  }
+})();
+</script>
+</body>
+</html>
